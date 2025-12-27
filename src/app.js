@@ -1,6 +1,7 @@
 import express, { urlencoded } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import userRouter from "./routes/registerUser.routes.js"
 
 const app = express();
 
@@ -23,5 +24,12 @@ app.use(
     express.static("public") // serves static files from 'public' directory
 )
 app.use(cookieParser()); // parses Cookie header and populates req.cookies
+
+app.get("/", (req, res) => {
+    res.send("Welcome to Portfolio Backend API");
+});
+
+// user routes
+app.use("/api/v1/users", userRouter)
 
 export default app;

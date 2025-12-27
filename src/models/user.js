@@ -15,6 +15,10 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      validate: {
+        validator: (v) => /^\S+@\S+\.\S+$/.test(v),
+        message: "Invalid email format"
+      }      
     },
     password: {
       type: String,
@@ -22,6 +26,8 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
+      enum: ["user", "admin"],
+      default: "user",
       required: true,
       trim: true,
     },
@@ -61,4 +67,6 @@ userSchema.methods.refreshToken = function () {
   );
 };
 
-export const User = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+export default User
