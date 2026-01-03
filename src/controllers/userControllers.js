@@ -1,7 +1,9 @@
 import APIResponse from "../utils/apiResponse.js";
 import ApiErrorResponse from "../utils/apiErrorResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import User from "../models/user.js";
+import User from "../models/userModel.js";
+import { generateAccessToken, generateRefreshToken } from "../utils/tokensGeneration.js";
+import { verifyRefreshToken } from "../utils/tokensVerification.js";
 
 // User Registration Controller
 const userRegistration = asyncHandler(async (req, res) => {
@@ -80,8 +82,8 @@ const userLogin = asyncHandler(async (req, res) => {
         }
 
         // create access and refresh tokens
-        const accessToken = user.accessToken();
-        const refreshToken = user.refreshToken();
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
 
         // now save the refresh token to the user table
         const isRefreshTokenUpdated = await User.updateOne(
@@ -118,7 +120,43 @@ const userLogin = asyncHandler(async (req, res) => {
             new APIResponse(200, userObj ,"User logged in successfully")
         );
     }
-
+    
 })
 
-export { userRegistration, userLogin };
+
+// Refresh Token Controller
+const refreshToken = asyncHandler(async (req, res) => {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+        return res.status(401).json(new APIResponse(401, "Unauthorized: No refresh token found"));
+    }
+
+    // Generate a new acces token
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+        return res.status(401).json(new APIResponse(401, "Unauthorized: Invalid refresh token"));
+    }
+
+    // Create new access token
+    const newAccessToken = generateAccessToken({ _id: decoded._id, email: decoded.email, role: decoded.role });
+
+    // Set new access token in cookies
+    res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    return res.status(200).json(new APIResponse(200, null, "Access token refreshed successfully"));
+});
+
+const logoutUser = asyncHandler( async (req, res) => {
+    // Clear the access and refresh token cookies
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    return res.status(200).json(new APIResponse(200, null, "User logged out successfully"));
+});
+
+export { userRegistration, userLogin, refreshToken, logoutUser };

@@ -1,7 +1,7 @@
 import express, { urlencoded } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import userRouter from "./routes/registerUser.routes.js"
+import userRouter from "./routes/registerUserRoutes.js"
 
 const app = express();
 
@@ -32,4 +32,9 @@ app.get("/", (req, res) => {
 // user routes
 app.use("/api/v1/users", userRouter)
 
+// testing middleware of auth
+import { authMiddleware } from './middlewares/authMiddleware.js';
+app.get("/test-middleware", authMiddleware, (req, res) => {
+    res.send("Middleware tested successfully");
+});
 export default app;
