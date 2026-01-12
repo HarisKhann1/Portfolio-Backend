@@ -2,6 +2,7 @@ import express, { urlencoded } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import userRouter from "./routes/registerUserRoutes.js"
+import projectRouter from './routes/projectRoutes.js';
 
 const app = express();
 
@@ -30,7 +31,8 @@ app.get("/", (req, res) => {
 });
 
 // user routes
-app.use("/api/v1/users", userRouter)
+app.use("/api/v1/users", userRouter);
+app.use("/api/v1/projects", projectRouter);
 
 // testing middleware of auth
 import { authMiddleware } from './middlewares/authMiddleware.js';
