@@ -15,19 +15,25 @@ const addProject = asyncHandler( async (req, res) => {
            return res.status(400).json(new ApiErrorResponse(400, "All fields are required"));
         }
     })
-
-    // Add project data to database
+    
     try {
+        // validate if project with same title already exists
+        const isProjectExists = await ProjectModel.findOne({ title: title.trim() });
+        if (isProjectExists) {
+            return res.status(409).json(new ApiErrorResponse(409, "Project with same title already exists"));
+        }
+
+        // Add project data to database
         const project = await ProjectModel.create(
             { title, description, category, projectUrl, sourceCodeUrl, imageUrl }
         );
+
+        // Return success response
+        return res.status(201).json(new APIResponse(201, project, "Project added successfully"));
     } catch (error) {
+        console.error("Error adding project:", error);
         return res.status(500).json(new ApiErrorResponse(500, "Somthing went wrong while adding project"));
     }
-
-    // Return success response
-    return res.status(201).json(new APIResponse(201, project, "Project added successfully"));
-
 });
 
 const updateProject = asyncHandler( async (req, res) => {
