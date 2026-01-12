@@ -7,7 +7,19 @@ import APIResponse from '../utils/apiResponse.js';
 const addProject = asyncHandler( async (req, res) => {
     const { title, description, category, projectUrl, sourceCodeUrl, imageUrl } = req.body;
 
-    const valFields = [title, description, category, projectUrl, sourceCodeUrl, imageUrl];
+    const valFields = [title, description, projectUrl, sourceCodeUrl, imageUrl];
+
+    // validate category
+    const validCategories = ['frontend', 'backend', 'gen-ai', 'agent', 'other'];
+    if (category) {
+        for (const key in validCategories) {
+            if (category[key] !== category[key]) {
+                return res.status(400).json(new ApiErrorResponse(400, "Invalid category value"));
+        }
+    }
+    }else {
+        return res.status(400).json(new ApiErrorResponse(400, "Category is required"));
+    }
 
     // Validate required fields
     valFields.forEach( (field) => {
@@ -128,6 +140,7 @@ const deleteProject = asyncHandler( async (req, res) => {
 
 const searchProject = asyncHandler( async (req, res) => {
     const { query } = req.query;
+    
     if (!query || query.trim() === '') {
         return res.status(400).json(new ApiErrorResponse(400, "Search query is required"));
     }
