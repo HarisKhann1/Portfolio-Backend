@@ -89,6 +89,7 @@ const updateProject = asyncHandler( async (req, res) => {
     try {
         await project.save();
     } catch (error) {
+        console.log("Error updating project:", error);
         return res.status(500).json(new ApiErrorResponse(500, "Something went wrong while updating project"));
     }
 
@@ -102,11 +103,9 @@ const deleteProject = asyncHandler( async (req, res) => {
     const projectId = req.params.id;
 
     // validations
-    [userEmail, projectId].forEach( (field) => {
-        if (field?.trim() === '' || field == null || field == undefined) {
-           return res.status(400).json(new ApiErrorResponse(400, "All fields are required"));
-        }
-    });
+    if (!projectId) {
+        return res.status(400).json(new ApiErrorResponse(400, "Project ID is required"));
+    }
 
     // Validate user
     const user = await UserModel.findOne(
@@ -130,17 +129,16 @@ const deleteProject = asyncHandler( async (req, res) => {
     // delete project
     try {
         await ProjectModel.findByIdAndDelete(projectId);
+        // Return success response
+    return res.status(200).json(new APIResponse(200, {}, "Project deleted successfully"));
     } catch (error) {
         return res.status(500).json(new ApiErrorResponse(500, "Something went wrong while deleting project"));
     }
-
-    // Return success response
-    return res.status(200).json(new APIResponse(200, null, "Project deleted successfully"));
 });
 
 const searchProject = asyncHandler( async (req, res) => {
-    const { query } = req.query;
-    
+    const { query } = req.params;
+    console.log("Search query:", query);
     if (!query || query.trim() === '') {
         return res.status(400).json(new ApiErrorResponse(400, "Search query is required"));
     }
@@ -150,9 +148,10 @@ const searchProject = asyncHandler( async (req, res) => {
         // Perform case-insensitive search for projects by title
         // lean() is used to get plain JavaScript objects instead of Mongoose documents
         const projects = await ProjectModel.findOne({title: { $regex: query, $options: 'i'}}).lean();
-
-        return res.status(200).json(new APIResponse(200, projects, "Projects fetched successfully"));
+        console.log("Found projects:", projects);
+        return res.status(200).json(new APIResponse(200, projects, "Project Data fetched successfully"));
     } catch (error) {
+        console.log("Error searching projects:", error);
         return res.status(500).json(new ApiErrorResponse(500, "Something went wrong while searching projects"));
     }
 });
