@@ -3,11 +3,12 @@ import UserModel from '../models/userModel.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiErrorResponse from '../utils/apiErrorResponse.js';
 import APIResponse from '../utils/apiResponse.js';
+import { uploadImage, deleteImage } from '../utils/imageKit.js';
 
 const addProject = asyncHandler( async (req, res) => {
-    const { title, description, category, projectUrl, sourceCodeUrl, imageUrl } = req.body;
+    const { title, description, category, sourceCodeUrl, projectUrl } = req.body;
 
-    const valFields = [title, description, projectUrl, sourceCodeUrl, imageUrl];
+    const valFields = [title, description, projectUrl, sourceCodeUrl];
 
     // validate category
     const validCategories = ['frontend', 'backend', 'gen-ai', 'agent', 'other'];
@@ -24,7 +25,7 @@ const addProject = asyncHandler( async (req, res) => {
     // Validate required fields
     valFields.forEach( (field) => {
         if (field?.trim() === '' || field == null || field == undefined) {
-           return res.status(400).json(new ApiErrorResponse(400, "All fields are required"));
+           return res.status(400).json(new ApiErrorResponse(400, "All fields are required"+ field));
         }
     })
     
@@ -37,9 +38,23 @@ const addProject = asyncHandler( async (req, res) => {
 
         // Add project data to database
         const project = await ProjectModel.create(
-            { title, description, category, projectUrl, sourceCodeUrl, imageUrl }
+            { title, description, category, projectUrl, sourceCodeUrl }
         );
 
+        // upload image to ImageKit
+        const ImagePath = req.file?.path;
+        if (ImagePath) {
+            const imageUploadResponse =  await uploadImage(ImagePath);
+            console.log("Image upload response:", imageUploadResponse);
+            if (imageUploadResponse) {
+                project.imageUrl = imageUploadResponse.url;
+                project.imageId = imageUploadResponse.fileId;
+                await project.save();
+            }else {
+                return res.status(500).json(new ApiErrorResponse(500, "Image upload failed"));
+            }
+        }
+        
         // Return success response
         return res.status(201).json(new APIResponse(201, project, "Project added successfully"));
     } catch (error) {
@@ -49,10 +64,10 @@ const addProject = asyncHandler( async (req, res) => {
 });
 
 const updateProject = asyncHandler( async (req, res) => {
-    // To be implemented
+
     const userEmail = req.user.email;
     const projectId = req.params.id;
-    const { title, description, category, projectUrl, sourceCodeUrl, imageUrl } = req.body;
+    const { title, description, category, projectUrl, sourceCodeUrl } = req.body;
 
     // Validate user
     if (!userEmail) {
@@ -83,16 +98,35 @@ const updateProject = asyncHandler( async (req, res) => {
     project.category = category || project.category;
     project.projectUrl = projectUrl || project.projectUrl;
     project.sourceCodeUrl = sourceCodeUrl || project.sourceCodeUrl;
-    project.imageUrl = imageUrl || project.imageUrl;
 
     // save updated project
     try {
-        await project.save();
+        // delete the previous uploaded file
+        if (project.imageId) {
+            const deleteResponse = await deleteImage(project.imageId);
+            console.log("Previous image deletion response:", deleteResponse);
+            if (!deleteResponse) {
+                return res.status(500).json(new ApiErrorResponse(500, "Previous image deletion failed"));
+            }
+        }
+
+        // upload image to ImageKit
+        const ImagePath = req.file?.path;
+        if (ImagePath) {
+            const imageUploadResponse =  await uploadImage(ImagePath);
+            console.log("Image upload response:", imageUploadResponse);
+            if (imageUploadResponse) {
+                project.imageUrl = imageUploadResponse.url;
+                project.imageId = imageUploadResponse.fileId;
+                await project.save();
+            }else {
+                return res.status(500).json(new ApiErrorResponse(500, "Image upload failed"));
+            }
+        }
     } catch (error) {
         console.log("Error updating project:", error);
         return res.status(500).json(new ApiErrorResponse(500, "Something went wrong while updating project"));
     }
-
     // Return success response
     return res.status(200).json(new APIResponse(200, project, "Project updated successfully"));
 
@@ -115,20 +149,29 @@ const deleteProject = asyncHandler( async (req, res) => {
         return res.status(404).json(new ApiErrorResponse(404, "User not found"));
     }
 
+    // validate authorization
+    if (user.role !== 'admin') {
+        return res.status(403).json(new ApiErrorResponse(403, "Forbidden: You don't have permission to perform this action"));
+    }
+
     // validate project existence
     const project = await ProjectModel.findById(projectId);
     if (!project) {
         return res.status(404).json(new ApiErrorResponse(404, "Project not found"));
     }
 
-    // validate authorization
-    if (user.role !== 'admin') {
-        return res.status(403).json(new ApiErrorResponse(403, "Forbidden: You don't have permission to perform this action"));
-    }
-
     // delete project
     try {
-        await ProjectModel.findByIdAndDelete(projectId);
+        const projectImageId = project.imageId;
+        const dbResp = await ProjectModel.findByIdAndDelete(projectId);
+        // delete image from ImageKit
+        if (projectImageId && dbResp) {
+            const deleteResponse = await deleteImage(projectImageId);
+            console.log("Project image deletion response:", deleteResponse);
+            if (!deleteResponse) {
+                return res.status(500).json(new ApiErrorResponse(500, "Project image deletion failed"));
+            }
+        }
         // Return success response
     return res.status(200).json(new APIResponse(200, {}, "Project deleted successfully"));
     } catch (error) {

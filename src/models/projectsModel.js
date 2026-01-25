@@ -32,7 +32,12 @@ const projectSchema = new Schema({
         type: String,
         required: false,
         trim: true,
-    }
+    },
+    imageId: {
+        type: String,
+        required: false,
+        trim: true,
+    },
 },
 {
     timestamps: true,
